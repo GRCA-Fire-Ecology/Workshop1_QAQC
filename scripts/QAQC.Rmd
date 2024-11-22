@@ -18,9 +18,13 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 ```{r}
 # Load packages
+
+# tidyverse and dplyr have lots of useful functions for data cleaning
 library(tidyverse)
-library(writexl)
 library(dplyr)
+# writexl is used to create excel files from within R
+library(writexl)
+# knitr is used to create output files from R Markdown
 library(knitr)
 # EnvStats is needed for the rosnerTest() function
 library(EnvStats)
@@ -31,7 +35,7 @@ library(EnvStats)
 Make sure to update file paths to be specific for your data.
 
 ```{r}
-# Identify working directory (specifically user name)
+# Identify working directory
 getwd()
 
 # Load in data. Change file path based on user name!
@@ -47,9 +51,6 @@ Fuels1000_all <- read.csv(paste0(path_data, "GRCA_Surface Fuels - 1000Hr_XPT.csv
 ```
 
 ```{r}
-# Ensure blanks in Visited column are NA
-Fuels1000_all$Visited[Fuels1000_all$Visited==""] <- NA
-
 # Clean up data frame
 Fuels1000_all <- Fuels1000_all %>%
   # Separate Date column into Date and Time columns
@@ -58,6 +59,9 @@ Fuels1000_all <- Fuels1000_all %>%
   select(!c("Month", "Day")) %>% 
   # Separate MacroPlotName to get Monitoring type
   separate(MacroPlot.Name, sep = " ", into = c("MonitoringType", "Plot"), remove = FALSE)
+
+# Ensure blanks in Visited column are NA
+Fuels1000_all$Visited[Fuels1000_all$Visited==""] <- NA
 
 # Filter for only data
 Fuels1000_data <- Fuels1000_all %>%
@@ -87,9 +91,8 @@ qaqc <- function(data, query, query_message, values_check) {
   # Identify errors 
   errors <- data %>%   
     mutate("SavedQuery" = query, 
-           "Error" = paste(query_message, "=", values_data)) %>%   
-    # Data is equal exactly to a value
-    filter((values_check) %>% replace_na(TRUE)) %>%   
+           "Error" = paste(query_message, "=", values_data)) %>%
+    filter(!(values_check) %>% replace_na(TRUE)) %>%   
     select("SavedQuery", "MacroPlot.Name", "Date", "Error", "Comment")
   
   # If no errors, add "No Errors" to existing data frame 
@@ -125,7 +128,7 @@ query <- "Fuel 1000 Header NumTran"
 query_message <- "Number of Transects" 
 values_data <- data$NumTran
 values_valid <- 4
-values_check <- !values_data == values_valid
+values_check <- values_data == values_valid
 
 # Identify errors
 errors_Fuels1000_NumTran <- qaqc(data, query, query_message, values_check)
@@ -141,7 +144,7 @@ query <- "Fuel 1000 Header NRim TranLen"
 query_message <- "Transect Length" 
 values_data <- data$TranLen 
 values_valid <- 50  
-values_check <-!values_data == values_valid
+values_check <- values_data == values_valid
 
 # Identify errors
 errors_Fuels1000_TranLen_N <- qaqc(data, query, query_message, values_check)
@@ -157,7 +160,7 @@ query <- "Fuel 1000 Header SRim TranLen"
 query_message <- "Transect Length" 
 values_data <- data$TranLen 
 values_valid <- 100 
-values_check <- !values_data == values_valid
+values_check <- values_data == values_valid
 
 # Identify errors
 errors_Fuels1000_TranLen_S <- qaqc(data, query, query_message, values_check)
@@ -178,7 +181,7 @@ query <- "Fuel 1000 DecayClass"
 query_message <- "Decay Class"
 values_data <- data$DecayCl
 values_valid <- c(3,4)
-values_check <- !values_data %in% values_valid
+values_check <- values_data %in% values_valid
 
 # Identify errors
 errors_Fuels1000_DecayCl <- qaqc(data, query, query_message, values_check)
@@ -199,7 +202,7 @@ query <- "Fuel 1000 FuelConst"
 query_message <- "Fuel Constant"
 values_data <- data$CWDFuConSt
 values_valid <- data$MonitoringType
-values_check <- !values_data == values_valid
+values_check <- values_data == values_valid
 
 # Identify errors
 errors_Fuels1000_FuelConst <- qaqc(data, query, query_message, values_check)
@@ -220,7 +223,7 @@ query <- "Fuel 1000 Values TransNum"
 query_message <- "Transect Number"
 values_data <- data$Transect
 values_valid <- c(1, 2, 3, 4)
-values_check <- !values_data %in% values_valid
+values_check <- values_data %in% values_valid
 
 # Identify errors
 errors_Fuels1000_TransNum <- qaqc(data, query, query_message, values_check)
@@ -235,7 +238,7 @@ query <- "Fuel 1000 Values Slope"
 query_message <- "Slope"
 values_data <- data$Slope
 values_valid <- seq(0, 90, by = 1)
-values_check <- (!values_data %in% values_valid) %>% replace_na(TRUE)
+values_check <- (values_data %in% values_valid) %>% replace_na(TRUE)
 
 # Identify errors
 errors_Fuels1000_Slope <- qaqc(data, query, query_message, values_check)
@@ -246,10 +249,6 @@ errors_Fuels1000_Slope <- qaqc(data, query, query_message, values_check)
 ```{r}
 # Perform Rosner's Test for outliers.
 # This test is most appropriate when the sample size is large (n > 20). 
-# Valid values were found by using the Rosner test on the full suite of data.
-# Refer to the script 2_QAQC_Rosner.Rmd
-
-#### Diameter
 
 # Filter all data to remove NA values for outlier test
 data_temp <- Fuels1000_all %>%
@@ -266,7 +265,7 @@ query <- "Fuel 1000 Values Dia"
 query_message <- "Diameter"
 values_data <- data$Dia
 values_valid <- seq(3, max_Dia, by = 0.5)
-values_check <- !values_data %in% values_valid
+values_check <- values_data %in% values_valid
 
 # Identify errors
 errors_Fuels1000_Dia <- qaqc(data, query, query_message, values_check)
@@ -277,12 +276,19 @@ errors_Fuels1000_Dia <- qaqc(data, query, query_message, values_check)
 ```{r}
 # Save to master error list
 errors_Fuels1000 <- rbind(errors_Fuels1000_DecayCl, errors_Fuels1000_FuelConst, errors_Fuels1000_NumTran, errors_Fuels1000_TranLen_N, errors_Fuels1000_TranLen_S, errors_Fuels1000_TransNum, errors_Fuels1000_Slope, errors_Fuels1000_Dia)
+```
 
+```{r}
+remove(errors_Fuels1000_DecayCl, errors_Fuels1000_FuelConst, errors_Fuels1000_NumTran, errors_Fuels1000_TranLen_N, errors_Fuels1000_TranLen_S, errors_Fuels1000_TransNum, errors_Fuels1000_Slope, errors_Fuels1000_Dia)
+```
+
+```{r}
 # Table of results for quick check
 kable(errors_Fuels1000, "pipe")
+```
 
+```{r}
 # Save as CSV or XLSX
 path_errors
-#write.csv(errors_Fuels1000, paste0(path_errors, "errors_Fuels1000.csv"), quote=FALSE, row.names = FALSE, na = "")
-#write_xlsx(errors_Fuels1000, paste0(path_errors, "errors_Fuels1000.xlsx"))
+write_xlsx(errors_Fuels1000, paste0(path_errors, "errors_Fuels1000.xlsx"))
 ```
