@@ -1,6 +1,6 @@
 ---
-title: "QAQC Workshop"
-author: "Alexandra Lalor"
+title: "QAQC Workshop - Fuels 1000"
+author: "FFI + R Working Group"
 date: "2024-11-21"
 output: html_document
 ---
@@ -83,7 +83,7 @@ errors_blank <- data.frame("SavedQuery" = "",
                            "Comment" = "")
 ```
 
-# FUNCTIONS
+### Create Functions
 
 ```{r}
 # QAQC function
