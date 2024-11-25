@@ -104,3 +104,150 @@ qaqc <- function(data, query, query_message, values_check) {
   }
 }
 ```
+
+## DUFF LITTER
+
+This code conducts quality control checks on surface fuels data within the surface fuels duff litter data set.
+
+It checks for: number of transects, fuel constants, number of points sampled, reasonable litter values, reasonable duff values.
+
+### Fuel DL Header
+
+[Problem:]{.underline} Incorrect header information entered for FMH plots.
+
+[Procedure:]{.underline}
+
+-   Check that NumTran = 4
+
+```{r}
+# Set parameters  
+data <- FuelsDuffLitt_header
+query <- "Fuel DL Header NumTran" 
+query_message <- "Number of Transects"  
+values_data <- data$NumTran  
+values_valid <- 4    
+values_check <- values_data == values_valid
+
+# Identify errors
+errors_FuelsDuffLitt_NumTran <- qaqc(data, query, query_message, values_check)
+```
+
+### Fuel DL FuelConst
+
+[Problem:]{.underline} Incorrect duff & litter fuel constant entered for PIAB or PIED or PIEN or PIPN or PIPO. Fuel constant name should correspond to the Monitoring Type.
+
+[Procedure:]{.underline}
+
+-   Check that DLFuConSt = Monitoring Type
+
+```{r}
+# Set parameters 
+data <- FuelsDuffLitt_data
+query <- "Fuel DL FuelConst" 
+query_message <- "Fuel Constant" 
+values_data <- data$DLFuConSt 
+values_valid <- data$MonitoringType  
+values_check <- values_data == values_valid
+
+# Identify errors
+errors_FuelsDuffLitt_FuelConst <- qaqc(data, query, query_message, values_check)
+```
+
+### Fuel DL Hits
+
+[Problem:]{.underline} Extra or missing data points in FMH plots. There should be 4 transects with 10 sample points per transect. 
+
+[Procedure:]{.underline}
+
+-   Group by Macroplot. Calculate number of hits per plot. Check that sum_hits = 40
+
+```{r}
+# Filter NA values. Add number of hits and store in new column
+data_temp <- FuelsDuffLitt_data %>%
+  filter(!is.na(SampLoc)) %>% 
+  group_by(MacroPlot.Name) %>% 
+  summarize("sum_hits" = n())
+
+# Set parameters 
+data <- merge(FuelsDuffLitt_data, data_temp, all.x = T)
+query <- "Fuel DL Hits" 
+query_message <- "Number of Hits" 
+values_data <- data$sum_hits
+values_valid <- 40
+values_check <- values_data == values_valid
+
+# Identify errors
+errors_FuelsDuffLitt_Hits <- qaqc(data, query, query_message, values_check)
+```
+
+### Fuel DL Values
+
+[Problem:]{.underline}  Values for litter and duff depth are missing or unreasonable.
+
+[Procedure:]{.underline}
+
+-   Sort by LittDep. Check that litter depth values are reasonable.
+
+```{r}
+# Perform Rosner's Test for outliers using all values
+data_temp <- FuelsDuffLitt_all %>%
+  filter(!is.na(LittDep))
+data_rosner <- rosnerTest(data_temp$LittDep)
+outliers <- data_rosner$all.stats$Value[data_rosner$all.stats$Outlier]
+max_Litt <- min(outliers) - 0.1
+
+# Set parameters 
+data <- FuelsDuffLitt_data
+query <- "Fuel DL Values LittDep" 
+query_message <- "Litter Depth Outlier" 
+values_data <- data$LittDep
+values_valid <- max_Litt
+values_check <- values_data <= values_valid
+
+# Identify errors
+errors_FuelsDuffLitt_LittDep <- qaqc(data, query, query_message, values_check)
+```
+
+-   Sort by DuffDep. Check that duff depth values are reasonable.
+
+```{r}
+# Perform Rosner's Test for outliers using all values
+data_temp <- FuelsDuffLitt_all %>%
+  filter(!is.na(DuffDep))
+data_rosner <- rosnerTest(data_temp$DuffDep)
+outliers <- data_rosner$all.stats$Value[data_rosner$all.stats$Outlier]
+max_Duff <- min(outliers) - 1
+
+# Set parameters 
+data <- FuelsDuffLitt_data
+query <- "Fuel DL Values DuffDep" 
+query_message <- "Duff Depth Outlier" 
+values_data <- data$DuffDep
+values_valid <- max_Duff
+values_check <- values_data <= values_valid
+
+# Identify errors
+errors_FuelsDuffLitt_DuffDep <- qaqc(data, query, query_message, values_check)
+```
+
+### Fuel DL Errors
+
+```{r}
+# Save to master error list 
+errors_FuelsDuffLitt <- unique(rbind(errors_FuelsDuffLitt_FuelConst, errors_FuelsDuffLitt_NumTran, errors_FuelsDuffLitt_Hits, errors_FuelsDuffLitt_LittDep, errors_FuelsDuffLitt_DuffDep))
+```
+
+```{r}
+remove(errors_FuelsDuffLitt_FuelConst, errors_FuelsDuffLitt_NumTran, errors_FuelsDuffLitt_Hits, errors_FuelsDuffLitt_LittDep, errors_FuelsDuffLitt_DuffDep)
+```
+
+```{r}
+# Table of results for quick check
+kable(errors_FuelsDuffLitt, "pipe")
+```
+
+```{r}
+# Save as XLSX
+path_errors
+write_xlsx(errors_FuelsDuffLitt, paste0(path_errors, "errors_FuelsDuffLitt.xlsx"))
+```

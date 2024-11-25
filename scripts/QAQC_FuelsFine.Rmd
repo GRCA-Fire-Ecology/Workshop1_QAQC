@@ -104,3 +104,262 @@ qaqc <- function(data, query, query_message, values_check) {
   }
 }
 ```
+
+## FINE FUELS
+
+This code conducts quality control checks on surface fuels data within the surface fuels fine (FWD) data set.
+
+It checks for: header info (number of transects, length of transects for One/Ten/Hundred Hour), fuel constants, transect numbers, reasonable azimuth numbers, reasonable slope numbers, reasonable One/Ten/Hundred Hour count values.
+
+### Fuel Fine Header
+
+[Problem:]{.underline} Incorrect header information entered for FMH plots.
+
+[Procedure:]{.underline}
+
+-   Check that NumTran = 4
+
+```{r}
+# Set parameters  
+data <- FuelsFine_header
+query <- "Fuel Fine Header NumTran" 
+query_message <- "Number of Transects"  
+values_data <- data$NumTran  
+values_valid <- 4    
+values_check <- values_data == values_valid
+
+# Identify errors
+errors_FuelsFine_NumTran <- qaqc(data, query, query_message, values_check)
+```
+
+-   Check that OneHrTranLen = 6
+
+```{r}
+# Set parameters  
+data <- FuelsFine_header
+query <- "Fuel Fine Header OneHrTranLen" 
+query_message <- "One Hour Transect Length"  
+values_data <- data$OneHrTranLen
+values_valid <- 6
+values_check <- values_data == values_valid
+
+# Identify errors
+errors_FuelsFine_OneHrTranLen <- qaqc(data, query, query_message, values_check)
+```
+
+-   Check that TenHrTranLen = 6
+
+```{r}
+# Set parameters  
+data <- FuelsFine_header
+query <- "Fuel Fine Header TenHrTranLen" 
+query_message <- "Ten Hour Transect Length"  
+values_data <- data$TenHrTranLen 
+values_valid <- 6
+values_check <- values_data == values_valid
+
+# Identify errors
+errors_FuelsFine_TenHrTranLen <- qaqc(data, query, query_message, values_check)
+```
+
+-   Check that HunHrTranLen = 12
+
+```{r}
+# Set parameters  
+data <- FuelsFine_header
+query <- "Fuel Fine Header HunHrTranLen" 
+query_message <- "Hundrend Hour Transect Length"  
+values_data <- data$HunHrTranLen 
+values_valid <- 12
+values_check <- values_data == values_valid
+
+# Identify errors
+errors_FuelsFine_HunHrTranLen <- qaqc(data, query, query_message, values_check)
+```
+
+### Fuel Fine FuelConst
+
+[Problem:]{.underline} Incorrect fine woody debris fuel constant entered for PIAB or PIED or PIEN or PIPN or PIPO. Fuel constant name should correspond to the Monitoring Type.
+
+[Procedure:]{.underline}
+
+-   Check that FWDFuConSt = Monitoring Type
+
+```{r}
+# Set parameters 
+data <- FuelsFine_data
+query <- "Fuel Fine FuelConst" 
+query_message <- "Fuel Constant" 
+values_data <- data$FWDFuConSt 
+values_valid <- data$MonitoringType  
+values_check <- values_data == values_valid
+
+# Identify errors
+errors_FuelsFine_FuelConst <- qaqc(data, query, query_message, values_check)
+```
+
+### Fuel Fine Hits
+
+[Problem:]{.underline} Extra or missing data points in FMH plots. There should be 4 transects with 1 sample point per transect. 
+
+[Procedure:]{.underline}
+
+-   Group by Macroplot. Calculate number of hits per plot. Check that sum_hits = 4
+
+```{r}
+# Filter NA values. Add number of hits and store in new column
+data_temp <- FuelsFine_data %>%
+  filter(!is.na(Transect)) %>% 
+  group_by(MacroPlot.Name) %>% 
+  summarize("sum_hits" = n())
+
+# Set parameters 
+data <- merge(FuelsFine_data, data_temp, all.x = T)
+query <- "Fuel Fine Hits" 
+query_message <- "Number of Hits" 
+values_data <- data$sum_hits
+values_valid <- 4
+values_check <- values_data == values_valid
+
+# Identify errors
+errors_FuelsFine_Hits <- qaqc(data, query, query_message, values_check)
+```
+
+### Fuel Fine Values
+
+[Problem:]{.underline}  Values for transect, azimuth, slope, and counts for One, Ten, Hundred hour fuels are missing or unreasonable.
+
+[Procedure:]{.underline}
+
+-   Check that Transect = 1, 2, 3, or 4
+
+```{r}
+# Set parameters
+data <- FuelsFine_data
+query <- "Fuel Fine Values TransNum"
+query_message <- "Transect Number"
+values_data <- data$Transect
+values_valid <- c(1, 2, 3, 4)
+values_check <- values_data %in% values_valid
+
+# Identify errors
+errors_FuelsFine_TransNum <- qaqc(data, query, query_message, values_check)
+```
+
+-   Check that Azimuth values are reasonable.
+
+```{r}
+# Set parameters
+data <- FuelsFine_data
+query <- "Fuel Fine Values Azimuth"
+query_message <- "Azimuth"
+values_data <- data$Azimuth
+values_valid <- seq(0, 359, by = 1)
+values_check <- values_data %in% values_valid
+
+# Identify errors
+errors_FuelsFine_Azimuth <- qaqc(data, query, query_message, values_check)
+```
+
+-   Check that Slope values are reasonable.
+
+```{r}
+# Set parameters
+data <- FuelsFine_data
+query <- "Fuel Fine Values Slope"
+query_message <- "Slope"
+values_data <- data$Slope
+values_valid <- seq(0, 90, by = 1)
+values_check <- values_data %in% values_valid
+
+# Identify errors
+errors_FuelsFine_Slope <- qaqc(data, query, query_message, values_check)
+```
+
+-   Check that One Hour values are reasonable.
+
+```{r}
+# Perform Rosner's Test for outliers using all values
+data_temp <- FuelsFine_all %>%
+  filter(!is.na(OneHr))
+test <- rosnerTest(data_temp$OneHr)
+outliers <- test$all.stats$Value[test$all.stats$Outlier]
+max_One <- min(outliers) - 1
+
+# Set parameters 
+data <- FuelsFine_data
+query <- "Fuel Fine Values OneHr" 
+query_message <- "One Hour Count Outlier" 
+values_data <- data$OneHr
+values_valid <- seq(0, max_One, by = 1)
+values_check <- values_data %in% values_valid
+
+# Identify errors
+errors_FuelsFine_OneHr <- qaqc(data, query, query_message, values_check)
+```
+
+-   Check that Ten Hour values are reasonable.
+
+```{r}
+# Perform Rosner's Test for outliers using all values
+data_temp <- FuelsFine_all %>%
+  filter(!is.na(TenHr))
+test <- rosnerTest(data_temp$TenHr)
+outliers <- test$all.stats$Value[test$all.stats$Outlier]
+max_Ten <- min(outliers) - 1
+
+# Set parameters 
+data <- FuelsFine_data
+query <- "Fuel Fine Values TenHr" 
+query_message <- "Ten Hour Count Outlier" 
+values_data <- data$TenHr
+values_valid <- seq(0, max_Ten, by = 1)
+values_check <- values_data %in% values_valid
+
+# Identify errors
+errors_FuelsFine_TenHr <- qaqc(data, query, query_message, values_check)
+```
+
+-   Check that Hundred Hour values are reasonable.
+
+```{r}
+# Perform Rosner's Test for outliers using all values
+data_temp <- FuelsFine_all %>%
+  filter(!is.na(HunHr))
+test <- rosnerTest(data_temp$HunHr)
+outliers <- test$all.stats$Value[test$all.stats$Outlier]
+max_Hun <- min(outliers) - 1
+
+# Set parameters 
+data <- FuelsFine_data
+query <- "Fuel Fine Values HunHr" 
+query_message <- "Hundred Hour Count Outlier" 
+values_data <- data$HunHr
+values_valid <- seq(0, max_Hun, by = 1)
+values_check <- values_data %in% values_valid
+
+# Identify errors
+errors_FuelsFine_HunHr <- qaqc(data, query, query_message, values_check)
+```
+
+### Fuel Fine Errors
+
+```{r}
+# Save to master error list 
+errors_FuelsFine <- unique(rbind(errors_FuelsFine_FuelConst, errors_FuelsFine_NumTran, errors_FuelsFine_OneHrTranLen, errors_FuelsFine_TenHrTranLen, errors_FuelsFine_HunHrTranLen, errors_FuelsFine_Hits, errors_FuelsFine_TransNum, errors_FuelsFine_Azimuth, errors_FuelsFine_Slope, errors_FuelsFine_OneHr, errors_FuelsFine_TenHr, errors_FuelsFine_HunHr))
+```
+
+```{r}
+remove(errors_FuelsFine_FuelConst, errors_FuelsFine_NumTran, errors_FuelsFine_OneHrTranLen, errors_FuelsFine_TenHrTranLen, errors_FuelsFine_HunHrTranLen, errors_FuelsFine_Hits, errors_FuelsFine_TransNum, errors_FuelsFine_Azimuth, errors_FuelsFine_Slope, errors_FuelsFine_OneHr, errors_FuelsFine_TenHr, errors_FuelsFine_HunHr)
+```
+
+```{r}
+# Table of results for quick check
+kable(errors_FuelsFine, "pipe")
+```
+
+```{r}
+# Save as CSV or XLSX 
+path_errors
+write_xlsx(errors_FuelsFine, paste0(path_errors, "errors_FuelsFine.xlsx"))
+```
