@@ -9,7 +9,10 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 # Install packages (if needed)
-#install.packages("tidyverse")
+# install.packages("tidyverse")
+# install.packages("dplyr")
+# install.packages("writexl")
+# install.packages("EnvStats")
 ```
 
 # BEFORE STARTING
@@ -150,7 +153,7 @@ values_check <- values_data == values_valid
 errors_Fuels1000_TranLen_N <- qaqc(data, query, query_message, values_check)
 ```
 
--   Check that S Rim TranLen = 100 (or very close). South Rim plots include PIED and PIPO.
+-   Check that South Rim TranLen = 100 (or very close). South Rim plots include PIED and PIPO.
 
 ```{r}
 # Set parameters 
