@@ -91,18 +91,25 @@ errors_blank <- data.frame("SavedQuery" = "",
 ```{r}
 # QAQC function
 qaqc <- function(data, query, query_message, values_check) {
-  # Identify errors 
+  # Identify errors in the data based on the provided check condition
   errors <- data %>%   
+    # Create new columns: "SavedQuery" with the query parameter and "Error"
+    # which concatenates the query_message and values_data
     mutate("SavedQuery" = query, 
            "Error" = paste(query_message, "=", values_data)) %>%
+    # Filter the data to find rows where values_check condition is TRUE
+    # use replace_na to treat NA values as TRUE (which means they pass the check)
     filter(!(values_check) %>% replace_na(TRUE)) %>%   
+    # Select specific columns to include the errors data frame
     select("SavedQuery", "MacroPlot.Name", "Date", "Error", "Comment")
   
-  # If no errors, add "No Errors" to existing data frame 
+  # If no errors are identified, add "No Errors" to existing data frame 
   if (nrow(errors) == 0) {   
+    # If no errors, replace errors with blank data frame and add the Saved Query
     errors <- errors_blank %>%     
       mutate(SavedQuery = query) 
   } else {   
+    # if there are errors, retain the errors data frame as is
     errors <- errors
   }
 }
@@ -125,15 +132,22 @@ It checks for: header info (number of transects, length of transects), decay cla
 -   Check that NumTran = 4
 
 ```{r}
-# Set parameters 
+# Set parameters  for the QAQC function
+
+# Load the data frame containing the "1000 Fuel" header information
 data <- Fuels1000_header
+# Define a descriptive string for the query related to the number of transects
 query <- "Fuel 1000 Header NumTran"
+# Set a message to indicate what aspect is being checked
 query_message <- "Number of Transects" 
+# Extract the "NumTran" column from the data frame into a variable for checking
 values_data <- data$NumTran
+# Define the valid number of transects expected in the data
 values_valid <- 4
+# create a logical vector indicating which rows meet the valid transect condition
 values_check <- values_data == values_valid
 
-# Identify errors
+# Identify errors by calling the QAQC function and store the results
 errors_Fuels1000_NumTran <- qaqc(data, query, query_message, values_check)
 ```
 
